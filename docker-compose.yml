@@ -104,7 +104,7 @@ services:
     restart: unless-stopped
     depends_on:
       - immich-postgres
-      - immich-redis
+      - redis
     expose:
       - "3001"
     networks:
