@@ -18,7 +18,6 @@ volumes:
   immich_uploads:
 
 services:
-
   nginx-proxy-manager:
     image: jc21/nginx-proxy-manager:latest
     container_name: nginx-proxy-manager
@@ -48,20 +47,6 @@ services:
     volumes:
       - vaultwarden_data:/data
 
-  # PostgreSQL для Nextcloud
-  nextcloud-postgres:
-    image: postgres:14
-    container_name: nextcloud-postgres
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: nextcloud
-      POSTGRES_PASSWORD: nextcloudpass
-      POSTGRES_DB: nextcloud
-    volumes:
-      - nextcloud_pgdata:/var/lib/postgresql/data
-    networks:
-      - nextcloud_network
-
   nextcloud:
     image: nextcloud
     container_name: nextcloud
@@ -78,22 +63,32 @@ services:
       POSTGRES_PASSWORD: nextcloudpass
     volumes:
       - nextcloud_data:/var/www/html
-    depends_on:
-      - nextcloud-postgres
 
-  # PostgreSQL для Immich
+  nextcloud-postgres:
+    image: postgres:14
+    container_name: nextcloud-postgres
+    restart: unless-stopped
+    networks:
+      - nextcloud_network
+    environment:
+      POSTGRES_USER: nextcloud
+      POSTGRES_PASSWORD: nextcloudpass
+      POSTGRES_DB: nextcloud
+    volumes:
+      - nextcloud_pgdata:/var/lib/postgresql/data
+
   immich-postgres:
     image: tensorchord/pgvecto-rs:pg14-v0.2.0
     container_name: immich-postgres
     restart: unless-stopped
+    networks:
+      - immich_network
     environment:
-      POSTGRES_USER: immich
-      POSTGRES_PASSWORD: immich
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: rootpass
       POSTGRES_DB: immich
     volumes:
       - immich_pgdata:/var/lib/postgresql/data
-    networks:
-      - immich_network
 
   immich-redis:
     image: redis:7
@@ -106,18 +101,17 @@ services:
     image: ghcr.io/immich-app/immich-server:release
     container_name: immich-server
     restart: unless-stopped
+    depends_on:
+      - immich-postgres
+      - immich-redis
     expose:
       - "3001"
     networks:
       - proxy
       - immich_network
     environment:
-      DB_URL: postgresql://immich:immich@immich-postgres:5432/immich
+      DB_URL: postgresql://postgres:rootpass@immich-postgres:5432/immich
       REDIS_URL: redis://immich-redis:6379
       NODE_ENV: production
-    depends_on:
-      - immich-postgres
-      - immich-redis
     volumes:
       - immich_uploads:/usr/src/app/upload
-
