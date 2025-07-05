@@ -18,6 +18,7 @@ volumes:
   immich_uploads:
 
 services:
+
   nginx-proxy-manager:
     image: jc21/nginx-proxy-manager:latest
     container_name: nginx-proxy-manager
@@ -92,7 +93,7 @@ services:
 
   redis:
     image: redis:7
-    container_name: immich-redis
+    container_name: redis
     restart: unless-stopped
     networks:
       - immich_network
@@ -116,7 +117,7 @@ services:
     volumes:
       - immich_uploads:/usr/src/app/upload
 
-    syncthing:
+  syncthing:
     image: syncthing/syncthing:latest
     container_name: syncthing
     restart: unless-stopped
@@ -129,4 +130,3 @@ services:
     volumes:
       - /srv/syncthing:/var/syncthing
       - /srv/photos:/var/syncthing/Sync
-
