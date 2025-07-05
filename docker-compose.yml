@@ -3,6 +3,10 @@ version: "3.9"
 networks:
   proxy:
     external: false
+  immich_network:
+    driver: bridge
+  nextcloud_network:
+    driver: bridge
 
 volumes:
   npm_data:
@@ -36,7 +40,7 @@ services:
     environment:
       ROCKET_ADDRESS: "0.0.0.0"
       ROCKET_PORT: "80"
-      DOMAIN: "https://vault.drawdekyluk.duckdns.org"
+      DOMAIN: "https://vault.drawde.cz"
     expose:
       - "80"
     networks:
@@ -44,19 +48,19 @@ services:
     volumes:
       - vaultwarden_data:/data
 
-  # NEXTCLOUD SECTION
+  # PostgreSQL для Nextcloud
   nextcloud-postgres:
-    image: postgres:15
+    image: postgres:14
     container_name: nextcloud-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: nextcloud
       POSTGRES_USER: nextcloud
       POSTGRES_PASSWORD: nextcloudpass
+      POSTGRES_DB: nextcloud
     volumes:
       - nextcloud_pgdata:/var/lib/postgresql/data
     networks:
-      - proxy
+      - nextcloud_network
 
   nextcloud:
     image: nextcloud
@@ -66,8 +70,7 @@ services:
       - "80"
     networks:
       - proxy
-    depends_on:
-      - nextcloud-postgres
+      - nextcloud_network
     environment:
       POSTGRES_HOST: nextcloud-postgres
       POSTGRES_DB: nextcloud
@@ -75,42 +78,46 @@ services:
       POSTGRES_PASSWORD: nextcloudpass
     volumes:
       - nextcloud_data:/var/www/html
+    depends_on:
+      - nextcloud-postgres
 
-  # IMMICH SECTION
+  # PostgreSQL для Immich
   immich-postgres:
-    image: ankane/pgvector:latest
+    image: tensorchord/pgvecto-rs:pg14-v0.2.0
     container_name: immich-postgres
     restart: unless-stopped
     environment:
+      POSTGRES_USER: immich
+      POSTGRES_PASSWORD: immich
       POSTGRES_DB: immich
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: rootpass
     volumes:
       - immich_pgdata:/var/lib/postgresql/data
     networks:
-      - proxy
+      - immich_network
 
   immich-redis:
     image: redis:7
     container_name: immich-redis
     restart: unless-stopped
     networks:
-      - proxy
+      - immich_network
 
   immich-server:
     image: ghcr.io/immich-app/immich-server:release
     container_name: immich-server
     restart: unless-stopped
+    expose:
+      - "3001"
+    networks:
+      - proxy
+      - immich_network
+    environment:
+      DB_URL: postgresql://immich:immich@immich-postgres:5432/immich
+      REDIS_URL: redis://immich-redis:6379
+      NODE_ENV: production
     depends_on:
       - immich-postgres
       - immich-redis
-    networks:
-      - proxy
-    expose:
-      - "3001"
-    environment:
-      DB_URL: postgresql://postgres:rootpass@immich-postgres:5432/immich
-      REDIS_URL: redis://immich-redis:6379
-      NODE_ENV: production
     volumes:
       - immich_uploads:/usr/src/app/upload
+
